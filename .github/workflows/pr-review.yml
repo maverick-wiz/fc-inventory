@@ -1,0 +1,72 @@
+name: PR Review Gate
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, review_submitted]
+  pull_request_review:
+    types: [submitted]
+
+jobs:
+  pr-gate:
+    name: PR — Enforce Review Requirements
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Enforce branch naming convention
+        run: |
+          BRANCH="${{ github.head_ref }}"
+          if ! echo "$BRANCH" | grep -qP '^(feature|fix|hotfix|chore|docs)/SCRUM-\d+'; then
+            echo "❌ Branch name must follow: feature/SCRUM-XX-description"
+            echo "Got: $BRANCH"
+            exit 1
+          fi
+          echo "✅ Branch name valid: $BRANCH"
+
+      - name: Check Jira ticket reference in PR title
+        run: |
+          TITLE="${{ github.event.pull_request.title }}"
+          if ! echo "$TITLE" | grep -qP 'SCRUM-\d+'; then
+            echo "❌ PR title must reference a Jira ticket: e.g. 'SCRUM-64: implement auth module'"
+            echo "Got: $TITLE"
+            exit 1
+          fi
+          echo "✅ Jira ticket found in PR title"
+
+      - name: Post PR opened comment to Jira
+        if: github.event.action == 'opened'
+        run: |
+          BRANCH="${{ github.head_ref }}"
+          TICKET=$(echo "$BRANCH" | grep -oP 'SCRUM-\d+' | head -1)
+          PR_URL="${{ github.event.pull_request.html_url }}"
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          PR_AUTHOR="${{ github.event.pull_request.user.login }}"
+
+          if [ -n "$TICKET" ]; then
+            AUTH=$(echo -n "${{ secrets.JIRA_EMAIL }}:${{ secrets.JIRA_API_TOKEN }}" | base64)
+            curl -s -X POST \
+              -H "Authorization: Basic $AUTH" \
+              -H "Content-Type: application/json" \
+              -d "{\"body\":{\"type\":\"doc\",\"version\":1,\"content\":[{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"🔀 PR opened by @$PR_AUTHOR — awaiting Maverick review\\n$PR_TITLE\\n$PR_URL\"}]}]}}" \
+              "https://wizkidtester.atlassian.net/rest/api/3/issue/$TICKET/comment"
+            echo "✅ Posted PR link to $TICKET"
+          fi
+
+      - name: Post approval comment to Jira
+        if: |
+          github.event_name == 'pull_request_review' &&
+          github.event.review.state == 'approved'
+        run: |
+          BRANCH="${{ github.head_ref }}"
+          TICKET=$(echo "$BRANCH" | grep -oP 'SCRUM-\d+' | head -1)
+          REVIEWER="${{ github.event.review.user.login }}"
+
+          if [ -n "$TICKET" ]; then
+            AUTH=$(echo -n "${{ secrets.JIRA_EMAIL }}:${{ secrets.JIRA_API_TOKEN }}" | base64)
+            curl -s -X POST \
+              -H "Authorization: Basic $AUTH" \
+              -H "Content-Type: application/json" \
+              -d "{\"body\":{\"type\":\"doc\",\"version\":1,\"content\":[{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"✅ PR APPROVED by @$REVIEWER — ready to merge.\"}]}]}}" \
+              "https://wizkidtester.atlassian.net/rest/api/3/issue/$TICKET/comment"
+            echo "✅ Posted approval to $TICKET"
+          fi

@@ -1,0 +1,246 @@
+name: CI — FC-Inventory
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+env:
+  PYTHON_VERSION: "3.11"
+  NODE_VERSION: "20"
+
+jobs:
+  # ── Backend ──────────────────────────────────────────────────────────────
+  backend-lint:
+    name: Backend — Lint & Type Check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install dev dependencies
+        run: pip install ruff mypy -r requirements.txt -r requirements-dev.txt
+
+      - name: Ruff lint
+        run: ruff check app/
+
+      - name: Mypy type check
+        run: mypy app/ --ignore-missing-imports
+
+  backend-tests:
+    name: Backend — Unit & Integration Tests
+    runs-on: ubuntu-latest
+    needs: backend-lint
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: maverick
+          POSTGRES_PASSWORD: mav-secret
+          POSTGRES_DB: mavdb_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:8
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Run tests with coverage
+        env:
+          DATABASE_URL: postgresql+asyncpg://maverick:mav-secret@localhost:5432/mavdb_test
+          REDIS_URL: redis://localhost:6379/0
+          APP_SECRET_KEY: test-secret-key-ci
+          APP_ENV: test
+        run: pytest
+
+      - name: Upload coverage report
+        uses: codecov/codecov-action@v4
+        with:
+          file: coverage.xml
+          flags: backend
+
+  # ── Frontend ─────────────────────────────────────────────────────────────
+  frontend-lint:
+    name: Frontend — Lint & Type Check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: ESLint
+        run: npm run lint
+
+      - name: TypeScript check
+        run: npm run type-check
+
+  frontend-tests:
+    name: Frontend — Tests
+    runs-on: ubuntu-latest
+    needs: frontend-lint
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm run test -- --coverage
+
+  # ── Security Scan ────────────────────────────────────────────────────────
+  security-scan:
+    name: Security — Trivy Image Scan
+    runs-on: ubuntu-latest
+    needs: [backend-tests, frontend-tests]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build backend image
+        run: docker build -t fc-inventory-api:${{ github.sha }} ./backend
+
+      - name: Trivy scan — backend
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: fc-inventory-api:${{ github.sha }}
+          format: table
+          exit-code: "1"
+          severity: HIGH,CRITICAL
+
+      - name: Dependency audit — Python
+        working-directory: backend
+        run: |
+          pip install pip-audit
+          pip-audit -r requirements.txt
+
+  # ── Jira Integration ─────────────────────────────────────────────────────
+  jira-transition:
+    name: Jira — Update Ticket Status
+    runs-on: ubuntu-latest
+    needs: [backend-tests, frontend-tests]
+    if: always()
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract Jira ticket from branch name
+        id: jira
+        run: |
+          BRANCH="${{ github.head_ref || github.ref_name }}"
+          TICKET=$(echo "$BRANCH" | grep -oP 'SCRUM-\d+' | head -1)
+          echo "ticket=$TICKET" >> $GITHUB_OUTPUT
+          echo "Jira ticket: $TICKET"
+
+      - name: Move ticket to In Review (on PR open)
+        if: github.event_name == 'pull_request' && steps.jira.outputs.ticket != ''
+        run: |
+          TICKET="${{ steps.jira.outputs.ticket }}"
+          TOKEN="${{ secrets.JIRA_API_TOKEN }}"
+          EMAIL="${{ secrets.JIRA_EMAIL }}"
+          BASE="https://wizkidtester.atlassian.net"
+          AUTH=$(echo -n "$EMAIL:$TOKEN" | base64)
+
+          # Get In Review transition ID
+          TRANSITIONS=$(curl -s -H "Authorization: Basic $AUTH" \
+            "$BASE/rest/api/3/issue/$TICKET/transitions")
+          TRANSITION_ID=$(echo $TRANSITIONS | python3 -c "
+          import json,sys
+          d=json.load(sys.stdin)
+          t=[t for t in d['transitions'] if t['name']=='In Review']
+          print(t[0]['id'] if t else '')
+          ")
+
+          if [ -n "$TRANSITION_ID" ]; then
+            curl -s -X POST \
+              -H "Authorization: Basic $AUTH" \
+              -H "Content-Type: application/json" \
+              -d "{\"transition\":{\"id\":\"$TRANSITION_ID\"}}" \
+              "$BASE/rest/api/3/issue/$TICKET/transitions"
+            echo "✅ Moved $TICKET to In Review"
+          fi
+
+      - name: Move ticket to Done (on PR merge to main)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.jira.outputs.ticket != ''
+        run: |
+          TICKET="${{ steps.jira.outputs.ticket }}"
+          TOKEN="${{ secrets.JIRA_API_TOKEN }}"
+          EMAIL="${{ secrets.JIRA_EMAIL }}"
+          BASE="https://wizkidtester.atlassian.net"
+          AUTH=$(echo -n "$EMAIL:$TOKEN" | base64)
+
+          TRANSITIONS=$(curl -s -H "Authorization: Basic $AUTH" \
+            "$BASE/rest/api/3/issue/$TICKET/transitions")
+          TRANSITION_ID=$(echo $TRANSITIONS | python3 -c "
+          import json,sys
+          d=json.load(sys.stdin)
+          t=[t for t in d['transitions'] if t['name']=='Done']
+          print(t[0]['id'] if t else '')
+          ")
+
+          if [ -n "$TRANSITION_ID" ]; then
+            curl -s -X POST \
+              -H "Authorization: Basic $AUTH" \
+              -H "Content-Type: application/json" \
+              -d "{\"transition\":{\"id\":\"$TRANSITION_ID\"}}" \
+              "$BASE/rest/api/3/issue/$TICKET/transitions"
+
+            # Post merge comment
+            curl -s -X POST \
+              -H "Authorization: Basic $AUTH" \
+              -H "Content-Type: application/json" \
+              -d "{\"body\":{\"type\":\"doc\",\"version\":1,\"content\":[{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"✅ PR merged to main — ticket auto-closed by GitHub Actions. Commit: ${{ github.sha }}\"}]}]}}" \
+              "$BASE/rest/api/3/issue/$TICKET/comment"
+            echo "✅ Moved $TICKET to Done"
+          fi
