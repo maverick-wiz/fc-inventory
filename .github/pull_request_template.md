@@ -2,7 +2,7 @@
 
 ### Jira Ticket
 <!-- Required: Link your Jira ticket -->
-**Ticket:** [SCRUM-XX](https://wizkidtester.atlassian.net/browse/SCRUM-XX)
+**Ticket:** [FCINV-XX](https://wizkidtester.atlassian.net/browse/FCINV-XX)
 
 ### Summary
 <!-- What does this PR do? -->
@@ -32,8 +32,8 @@
 
 
 ### Checklist
-- [ ] Branch name follows `feature/SCRUM-XX-description` convention
-- [ ] PR title references Jira ticket: `SCRUM-XX: description`
+- [ ] Branch name follows `feature/FCINV-XX-description` convention
+- [ ] PR title references Jira ticket: `FCINV-XX: description`
 - [ ] No secrets or credentials committed
 - [ ] Code reviewed by author before requesting review
 - [ ] Tests cover the new/changed code (≥ 80% coverage maintained)

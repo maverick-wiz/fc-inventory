@@ -179,7 +179,7 @@ jobs:
         id: jira
         run: |
           BRANCH="${{ github.head_ref || github.ref_name }}"
-          TICKET=$(echo "$BRANCH" | grep -oP 'SCRUM-\d+' | head -1)
+          TICKET=$(echo "$BRANCH" | grep -oP 'FCINV-\d+' | head -1)
           echo "ticket=$TICKET" >> $GITHUB_OUTPUT
           echo "Jira ticket: $TICKET"
 

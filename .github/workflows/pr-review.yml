@@ -16,8 +16,8 @@ jobs:
       - name: Enforce branch naming convention
         run: |
           BRANCH="${{ github.head_ref }}"
-          if ! echo "$BRANCH" | grep -qP '^(feature|fix|hotfix|chore|docs)/SCRUM-\d+'; then
-            echo "❌ Branch name must follow: feature/SCRUM-XX-description"
+          if ! echo "$BRANCH" | grep -qP '^(feature|fix|hotfix|chore|docs)/FCINV-\d+'; then
+            echo "❌ Branch name must follow: feature/FCINV-XX-description"
             echo "Got: $BRANCH"
             exit 1
           fi
@@ -26,8 +26,8 @@ jobs:
       - name: Check Jira ticket reference in PR title
         run: |
           TITLE="${{ github.event.pull_request.title }}"
-          if ! echo "$TITLE" | grep -qP 'SCRUM-\d+'; then
-            echo "❌ PR title must reference a Jira ticket: e.g. 'SCRUM-64: implement auth module'"
+          if ! echo "$TITLE" | grep -qP 'FCINV-\d+'; then
+            echo "❌ PR title must reference a Jira ticket: e.g. 'FCINV-64: implement auth module'"
             echo "Got: $TITLE"
             exit 1
           fi
@@ -37,7 +37,7 @@ jobs:
         if: github.event.action == 'opened'
         run: |
           BRANCH="${{ github.head_ref }}"
-          TICKET=$(echo "$BRANCH" | grep -oP 'SCRUM-\d+' | head -1)
+          TICKET=$(echo "$BRANCH" | grep -oP 'FCINV-\d+' | head -1)
           PR_URL="${{ github.event.pull_request.html_url }}"
           PR_TITLE="${{ github.event.pull_request.title }}"
           PR_AUTHOR="${{ github.event.pull_request.user.login }}"
@@ -58,7 +58,7 @@ jobs:
           github.event.review.state == 'approved'
         run: |
           BRANCH="${{ github.head_ref }}"
-          TICKET=$(echo "$BRANCH" | grep -oP 'SCRUM-\d+' | head -1)
+          TICKET=$(echo "$BRANCH" | grep -oP 'FCINV-\d+' | head -1)
           REVIEWER="${{ github.event.review.user.login }}"
 
           if [ -n "$TICKET" ]; then
