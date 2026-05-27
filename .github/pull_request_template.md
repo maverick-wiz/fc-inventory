@@ -1,49 +1,86 @@
 ## Pull Request
 
 ### Jira Ticket
-<!-- Required: Link your Jira ticket -->
 **Ticket:** [FCINV-XX](https://wizkidtester.atlassian.net/browse/FCINV-XX)
 
-### Summary
-<!-- What does this PR do? -->
+---
+
+## 🟢 OMEGA Self-Certification
+<!-- REQUIRED — SAGE will not begin review without this. Check every box. -->
+<!-- Copy this block, tick all boxes, and post it as a PR comment when ready. -->
+
+```
+🟢 OMEGA SELF-CERT
+- [ ] All tests run locally — passing
+- [ ] Coverage ≥ 80% on new/changed code
+- [ ] ruff + mypy pass with zero errors
+- [ ] No secrets, credentials, or hardcoded values committed
+- [ ] All DB writes include tenant_id — no unscoped queries
+- [ ] SHADOW secure coding standards followed
+- [ ] PR is scoped to one ticket only — no scope creep
+- [ ] .env.example updated if new config vars added
+Signed: OMEGA — {{timestamp}}
+```
+
+---
+
+## Summary
+<!-- What does this PR do? Be specific. -->
 
 
-### Type of Change
-- [ ] ✨ Feature (new functionality)
+## Type of Change
+- [ ] ✨ Feature
 - [ ] 🐛 Bug fix
 - [ ] 🔒 Security fix
 - [ ] ♻️ Refactor
 - [ ] 📝 Documentation
-- [ ] 🧪 Tests
+- [ ] 🧪 Tests only
 - [ ] 🏗️ Infrastructure / CI
 
-### Changes Made
-<!-- List the key changes -->
+## Changes Made
 -
 -
 -
 
-### Testing Done
-- [ ] Unit tests added / updated
-- [ ] Integration tests pass
-- [ ] Manual testing done (describe below)
-
-**Manual test steps:**
-
-
-### Checklist
-- [ ] Branch name follows `feature/FCINV-XX-description` convention
-- [ ] PR title references Jira ticket: `FCINV-XX: description`
-- [ ] No secrets or credentials committed
-- [ ] Code reviewed by author before requesting review
-- [ ] Tests cover the new/changed code (≥ 80% coverage maintained)
-- [ ] `ruff` and `mypy` pass locally
-- [ ] SHADOW security review requested (if auth/data/API changes)
-- [ ] DELTA QA sign-off requested (if user-facing changes)
-
-### Reviewer Notes
-<!-- Anything specific you want the reviewer to focus on -->
-
+## Test Coverage
+- [ ] Unit tests added / updated (`tests/unit/`)
+- [ ] Integration tests added / updated (`tests/integration/`)
+- [ ] Test IDs mapped to test-cases doc (TC-XXX)
+- [ ] Coverage ≥ 80% verified locally
 
 ---
-*This PR will automatically update Jira ticket status via GitHub Actions.*
+
+## 🔍 SAGE Review Section
+<!-- Do not fill this — SAGE will populate after you post self-cert -->
+
+| Category | Status | Notes |
+|---|---|---|
+| 1. Architecture & Design | ⏳ Pending | — |
+| 2. Code Quality | ⏳ Pending | — |
+| 3. Security | ⏳ Pending | — |
+| 4. Test Coverage | ⏳ Pending | — |
+| 5. Performance | ⏳ Pending | — |
+| 6. Documentation | ⏳ Pending | — |
+| 7. Domain Rules | ⏳ Pending | — |
+
+**SAGE Verdict:** ⏳ Pending self-certification
+
+---
+
+## ✅ Approval Flow
+
+```
+OMEGA self-cert posted
+    ↓
+SAGE auto-gate passes (structure + static checks)
+    ↓
+Maverick dispatches: "SAGE review FCINV-XX"
+    ↓
+SAGE posts full signed review report
+    ↓
+Maverick approves on GitHub → PR merges
+```
+
+---
+*Branch convention: `feature/FCINV-XX-short-description`*
+*PR title convention: `FCINV-XX: what this does`*
