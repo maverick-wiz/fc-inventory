@@ -266,9 +266,9 @@ jobs:
 
   docker-build-push:
     name: Docker — Build & Push to Harbor
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, harbor, azure-vm]   # ← runs on Azure VM with Harbor access
     needs: [backend-tests, frontend-tests]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
     steps:
       - uses: actions/checkout@v4
 
@@ -291,8 +291,6 @@ jobs:
           tags: |
             ${{ secrets.HARBOR_URL }}/fc-inventory-backend/app:${{ github.sha }}
             ${{ secrets.HARBOR_URL }}/fc-inventory-backend/app:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
 
       - name: Build and push frontend image
         id: frontend-build
@@ -303,12 +301,14 @@ jobs:
           tags: |
             ${{ secrets.HARBOR_URL }}/fc-inventory-frontend/app:${{ github.sha }}
             ${{ secrets.HARBOR_URL }}/fc-inventory-frontend/app:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
 
       - name: Image digest summary
         run: |
           echo "### 🐳 Docker Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "| Image | Tag | Digest |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| Backend | \`${{ github.sha }}\` | \`${{ steps.backend-build.outputs.digest }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Frontend | \`${{ github.sha }}\` | \`${{ steps.frontend-build.outputs.digest }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| Image | Tag | Digest |" >> $GITHUB_STEP_SUMMARY
           echo "|---|---|---|" >> $GITHUB_STEP_SUMMARY
           echo "| Backend | \`${{ github.sha }}\` | \`${{ steps.backend-build.outputs.digest }}\` |" >> $GITHUB_STEP_SUMMARY
