@@ -4,12 +4,11 @@ Inventory business logic: products, stock transactions, levels, low-stock.
 import uuid
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_, func, update
-from sqlalchemy.orm import selectinload
-from fastapi import HTTPException, status
+from sqlalchemy import select, and_, func
+from fastapi import HTTPException
 from app.db.models.models import (
     Product, InventoryLevel, StockTransaction,
-    StockTransactionType, Warehouse, Supplier, Category
+    StockTransactionType, Supplier
 )
 from app.workers.tasks import dispatch_low_stock_alert
 import logging
@@ -27,7 +26,7 @@ async def get_products(
     warehouse_id: Optional[uuid.UUID] = None,
     status_filter: Optional[str] = None,
 ) -> dict:
-    filters = [Product.tenant_id == tenant_id, Product.is_deleted == False]
+    filters = [Product.tenant_id == tenant_id, not Product.is_deleted]
     if sku:
         filters.append(Product.sku.ilike(f"%{sku}%"))
     if category_id:
@@ -71,7 +70,7 @@ async def create_product(db: AsyncSession, tenant_id: uuid.UUID, data: dict) -> 
 
 async def update_product(db: AsyncSession, tenant_id: uuid.UUID, sku: str, data: dict) -> dict:
     result = await db.execute(
-        select(Product).where(Product.tenant_id == tenant_id, Product.sku == sku, Product.is_deleted == False)
+        select(Product).where(Product.tenant_id == tenant_id, Product.sku == sku, not Product.is_deleted)
     )
     product = result.scalar_one_or_none()
     if not product:
@@ -189,7 +188,7 @@ async def get_inventory_levels(
     q = (
         select(InventoryLevel, Product)
         .join(Product, InventoryLevel.product_id == Product.id)
-        .where(Product.tenant_id == tenant_id, Product.is_deleted == False)
+        .where(Product.tenant_id == tenant_id, not Product.is_deleted)
     )
     if warehouse_id:
         q = q.where(InventoryLevel.warehouse_id == uuid.UUID(warehouse_id))
@@ -222,7 +221,7 @@ async def get_low_stock(db: AsyncSession, tenant_id: uuid.UUID) -> list:
         .outerjoin(Supplier, Product.supplier_id == Supplier.id)
         .where(
             Product.tenant_id == tenant_id,
-            Product.is_deleted == False,
+            not Product.is_deleted,
             InventoryLevel.qty_on_hand <= InventoryLevel.reorder_point,
         )
     )

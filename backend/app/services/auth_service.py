@@ -2,16 +2,13 @@
 Authentication business logic: login, refresh token rotation, session management.
 """
 import uuid
-from datetime import datetime, timezone, timedelta
-from typing import Optional
+from datetime import timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update
-from app.db.models.models import User, Tenant
+from sqlalchemy import select
+from app.db.models.models import User
 from app.core.security import (
-    verify_password, hash_password,
-    create_access_token, create_refresh_token, decode_token, hash_api_key
+    verify_password, create_access_token, create_refresh_token, decode_token, hash_api_key
 )
-from app.core.redis import get_redis
 from fastapi import HTTPException, status
 import redis.asyncio as aioredis
 
@@ -30,7 +27,7 @@ async def authenticate_user(
     """Validate credentials and return token pair."""
     # Rate limiting by IP is handled in middleware; here we validate creds
     result = await db.execute(
-        select(User).where(User.tenant_id == tenant_id, User.email == email, User.is_active == True)
+        select(User).where(User.tenant_id == tenant_id, User.email == email, User.is_active)
     )
     user = result.scalar_one_or_none()
 

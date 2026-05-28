@@ -4,10 +4,8 @@ FastAPI dependency injectors: get_current_user, require_role, get_tenant_id.
 from typing import Annotated, List
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.security import decode_token
 from app.core.redis import get_redis
-from app.db.session import get_db
 import redis.asyncio as aioredis
 
 bearer_scheme = HTTPBearer(auto_error=False)
