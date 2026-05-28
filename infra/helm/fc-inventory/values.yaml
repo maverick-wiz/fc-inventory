@@ -1,0 +1,46 @@
+# FC-Inventory Helm Chart — Default Values
+# Override per-environment with values-staging.yaml / values-production.yaml
+
+replicaCount: 1
+environment: staging
+
+backend:
+  image: harbor.local:30080/fc-inventory-backend/app:latest
+  port: 8000
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  env:
+    DATABASE_URL: "postgresql+asyncpg://postgres:postgres@postgresql.core.svc.cluster.local:5432/fc_inventory"
+    REDIS_URL: "redis://redis-master.core.svc.cluster.local:6379/0"
+    SECRET_KEY: "change-me-in-production"
+    ALGORITHM: "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: "30"
+
+frontend:
+  image: harbor.local:30080/fc-inventory-frontend/app:latest
+  port: 80
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+
+ingress:
+  enabled: true
+  host: fc-inventory.local
+  annotations:
+    kubernetes.io/ingress.class: nginx
+
+imagePullSecrets:
+  - name: harbor-pull-secret
+
+serviceAccount:
+  create: true
+  name: fc-inventory

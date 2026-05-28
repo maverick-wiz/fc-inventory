@@ -1,0 +1,10 @@
+apiVersion: v2
+name: fc-inventory
+description: FC-Inventory multi-tenant retail SaaS — Helm chart
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+keywords: [inventory, retail, multi-tenant, saas]
+maintainers:
+  - name: ALPHA
+    email: alpha@maverick-team.internal
