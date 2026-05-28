@@ -1,0 +1,9 @@
+# FC-Inventory — Staging Overrides
+replicaCount: 1
+environment: staging
+backend:
+  image: harbor.local:30080/fc-inventory-backend/app:latest
+frontend:
+  image: harbor.local:30080/fc-inventory-frontend/app:latest
+ingress:
+  host: fc-inventory.staging.local
