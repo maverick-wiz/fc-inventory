@@ -108,6 +108,7 @@ class Product(Base):
     sku = Column(String(100), nullable=False)
     name = Column(String(255), nullable=False)
     category_id = Column(UUID(as_uuid=True), ForeignKey("categories.id"), nullable=True)
+    supplier_id = Column(UUID(as_uuid=True), ForeignKey("suppliers.id"), nullable=True)
     upc = Column(String(50), nullable=True)
     unit_cost = Column(Numeric(10, 2), nullable=False)
     is_deleted = Column(Boolean, default=False)

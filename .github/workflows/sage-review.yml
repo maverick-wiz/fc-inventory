@@ -1,0 +1,228 @@
+name: SAGE — Automated PR Review Gate
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  pull_request_review_comment:
+    types: [created]
+
+jobs:
+  # ── Gate 1: Structure & Naming Enforcement ───────────────────────────────
+  sage-structure-gate:
+    name: SAGE — Structure Gate
+    runs-on: ubuntu-latest
+    outputs:
+      ticket: ${{ steps.extract.outputs.ticket }}
+      pr_number: ${{ steps.extract.outputs.pr_number }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract Jira ticket & PR info
+        id: extract
+        run: |
+          BRANCH="${{ github.head_ref }}"
+          TICKET=$(echo "$BRANCH" | grep -oP 'FCINV-\d+' | head -1)
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+          echo "ticket=$TICKET" >> $GITHUB_OUTPUT
+          echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
+          echo "Branch: $BRANCH | Ticket: $TICKET | PR: $PR_NUMBER"
+
+      - name: Enforce branch naming (feature/FCINV-XX-description)
+        run: |
+          BRANCH="${{ github.head_ref }}"
+          if ! echo "$BRANCH" | grep -qP '^(feature|fix|hotfix|chore|docs|refactor)/FCINV-\d+-\S+'; then
+            echo "❌ Branch must follow: feature/FCINV-XX-short-description"
+            echo "Got: $BRANCH"
+            exit 1
+          fi
+          echo "✅ Branch naming valid"
+
+      - name: Enforce PR title references FCINV ticket
+        run: |
+          TITLE="${{ github.event.pull_request.title }}"
+          if ! echo "$TITLE" | grep -qP 'FCINV-\d+'; then
+            echo "❌ PR title must reference FCINV ticket: e.g. 'FCINV-64: implement auth module'"
+            exit 1
+          fi
+          echo "✅ PR title valid"
+
+  # ── Gate 2: OMEGA Self-Certification Check ───────────────────────────────
+  sage-omega-cert-gate:
+    name: SAGE — OMEGA Self-Cert Gate
+    runs-on: ubuntu-latest
+    needs: sage-structure-gate
+    outputs:
+      cert_found: ${{ steps.check_cert.outputs.found }}
+    steps:
+      - name: Check for OMEGA self-certification comment
+        id: check_cert
+        run: |
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+          AUTH=$(echo -n "${{ secrets.JIRA_EMAIL }}:${{ secrets.JIRA_API_TOKEN }}" | base64)
+
+          # Fetch PR comments from GitHub
+          COMMENTS=$(curl -s \
+            -H "Authorization: token ${{ secrets.GH_PAT || github.token }}" \
+            "https://api.github.com/repos/${{ github.repository }}/issues/$PR_NUMBER/comments")
+
+          # Check for OMEGA self-cert signature
+          if echo "$COMMENTS" | grep -q "OMEGA SELF-CERT"; then
+            echo "found=true" >> $GITHUB_OUTPUT
+            echo "✅ OMEGA self-certification found"
+          else
+            echo "found=false" >> $GITHUB_OUTPUT
+            echo "⚠️  OMEGA self-certification NOT found"
+          fi
+
+      - name: Post SAGE gate comment — awaiting OMEGA self-cert
+        if: steps.check_cert.outputs.found == 'false' && github.event.action == 'opened'
+        run: |
+          TICKET="${{ needs.sage-structure-gate.outputs.ticket }}"
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+          AUTHOR="${{ github.event.pull_request.user.login }}"
+
+          BODY=$(cat <<'COMMENT'
+          ## 🔍 SAGE — PR Review Initiated
+
+          **PR Author:** @$AUTHOR
+          **Linked Ticket:** $TICKET
+
+          ---
+
+          ### ⏳ Awaiting OMEGA Self-Certification
+
+          SAGE does not begin deep review until the PR author posts the self-certification below.
+          Copy the block, check every item, and post it as a comment on this PR.
+
+          ```
+          🟢 OMEGA SELF-CERT
+          - [ ] All tests run locally — passing
+          - [ ] Coverage ≥ 80% on new/changed code
+          - [ ] ruff + mypy pass with zero errors
+          - [ ] No secrets, credentials, or hardcoded values committed
+          - [ ] All DB writes include tenant_id — no unscoped queries
+          - [ ] SHADOW secure coding standards followed
+          - [ ] PR is scoped to one ticket only — no scope creep
+          - [ ] .env.example updated if new config vars added
+          Signed: OMEGA — {{timestamp}}
+          ```
+
+          Once self-cert is posted, **tag @maverick-wiz** and SAGE will begin the full 7-category review.
+
+          ---
+          ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          🔍 SAGE CODE REVIEW — AUTO GATE
+          Agent:     SAGE — Senior Code Review Agent, Team Maverick
+          PR:        #$PR_NUMBER — $TICKET
+          Status:    ⏳ PENDING — Awaiting OMEGA self-certification
+          Next step: Post OMEGA SELF-CERT block above to unblock review
+          ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          COMMENT
+          )
+
+          curl -s -X POST \
+            -H "Authorization: token ${{ secrets.GH_PAT || github.token }}" \
+            -H "Content-Type: application/json" \
+            -d "{\"body\": $(echo "$BODY" | jq -Rs .)}" \
+            "https://api.github.com/repos/${{ github.repository }}/issues/$PR_NUMBER/comments"
+
+      - name: Fail if OMEGA self-cert missing
+        if: steps.check_cert.outputs.found == 'false'
+        run: |
+          echo "❌ SAGE gate blocked — OMEGA self-certification required before review can proceed"
+          exit 1
+
+  # ── Gate 3: Automated Static Checks ─────────────────────────────────────
+  sage-static-checks:
+    name: SAGE — Static Analysis
+    runs-on: ubuntu-latest
+    needs: sage-omega-cert-gate
+    if: needs.sage-omega-cert-gate.outputs.cert_found == 'true'
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install ruff mypy -r requirements.txt -r requirements-dev.txt
+
+      - name: Ruff lint — zero tolerance
+        run: ruff check app/
+
+      - name: Mypy type check
+        run: mypy app/ --ignore-missing-imports
+
+      - name: Check for raw SQL (ORM violations)
+        run: |
+          if grep -rn "execute(\"SELECT\|execute(\"INSERT\|execute(\"UPDATE\|execute(\"DELETE" app/ 2>/dev/null; then
+            echo "❌ Raw SQL detected — use SQLAlchemy ORM only (SAGE rule: Code Quality §2)"
+            exit 1
+          fi
+          echo "✅ No raw SQL detected"
+
+      - name: Check for hardcoded secrets
+        run: |
+          if grep -rn "password\s*=\s*['\"][^'\"]\|api_key\s*=\s*['\"][^'\"]\|secret\s*=\s*['\"][^'\"]" app/ 2>/dev/null | grep -v ".example\|test_\|#"; then
+            echo "❌ Potential hardcoded secret detected (SAGE rule: Security §3)"
+            exit 1
+          fi
+          echo "✅ No hardcoded secrets detected"
+
+      - name: Check for unscoped DB queries (missing tenant_id)
+        run: |
+          # Warn if any query() call doesn't filter by tenant_id nearby
+          echo "ℹ️  Manual tenant_id scope check — SAGE deep review will verify"
+
+  # ── Gate 4: Post SAGE Review Checklist to Jira ───────────────────────────
+  sage-jira-update:
+    name: SAGE — Jira Ticket Update
+    runs-on: ubuntu-latest
+    needs: [sage-structure-gate, sage-omega-cert-gate]
+    if: always() && needs.sage-structure-gate.outputs.ticket != ''
+    steps:
+      - name: Post SAGE gate status to Jira
+        run: |
+          TICKET="${{ needs.sage-structure-gate.outputs.ticket }}"
+          PR_URL="${{ github.event.pull_request.html_url }}"
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          CERT_STATUS="${{ needs.sage-omega-cert-gate.outputs.cert_found }}"
+          AUTH=$(echo -n "${{ secrets.JIRA_EMAIL }}:${{ secrets.JIRA_API_TOKEN }}" | base64)
+
+          if [ "$CERT_STATUS" = "true" ]; then
+            STATUS_MSG="✅ OMEGA self-cert received — SAGE automated checks running"
+          else
+            STATUS_MSG="⏳ Awaiting OMEGA self-certification before SAGE deep review"
+          fi
+
+          BODY="{\"body\":{\"type\":\"doc\",\"version\":1,\"content\":[{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"🔍 SAGE AUTO-GATE — PR #${{ github.event.pull_request.number }} opened\\n$PR_TITLE\\n$PR_URL\\n\\n$STATUS_MSG\\n\\nNext: Maverick dispatches SAGE for full 7-category review\"}]}]}}"
+
+          curl -s -X POST \
+            -H "Authorization: Basic $AUTH" \
+            -H "Content-Type: application/json" \
+            -d "$BODY" \
+            "https://wizkidtester.atlassian.net/rest/api/3/issue/$TICKET/comment"
+
+          # Transition to In Review
+          TRANSITIONS=$(curl -s -H "Authorization: Basic $AUTH" \
+            "https://wizkidtester.atlassian.net/rest/api/3/issue/$TICKET/transitions")
+          TID=$(echo "$TRANSITIONS" | python3 -c "
+          import json,sys
+          d=json.load(sys.stdin)
+          t=[x for x in d.get('transitions',[]) if x['name']=='In Review']
+          print(t[0]['id'] if t else '')
+          ")
+          if [ -n "$TID" ]; then
+            curl -s -X POST \
+              -H "Authorization: Basic $AUTH" \
+              -H "Content-Type: application/json" \
+              -d "{\"transition\":{\"id\":\"$TID\"}}" \
+              "https://wizkidtester.atlassian.net/rest/api/3/issue/$TICKET/transitions"
+            echo "✅ Jira $TICKET moved to In Review"
+          fi

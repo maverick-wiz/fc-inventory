@@ -67,7 +67,7 @@ fc-inventory/
 
 All commits and PRs must reference a Jira ticket:
 ```
-git commit -m "SCRUM-XX: description of change"
+git commit -m "FCINV-XX: description of change"
 ```
 
 Ticket transitions triggered automatically:
@@ -81,19 +81,19 @@ Ticket transitions triggered automatically:
 |---|---|
 | `main` | Production-ready code. Protected. Requires PR + approval. |
 | `develop` | Integration branch. PRs target here first. |
-| `feature/SCRUM-XX-description` | Feature branches per Jira ticket |
-| `fix/SCRUM-XX-description` | Bug fix branches |
-| `hotfix/SCRUM-XX-description` | Production hotfixes |
+| `feature/FCINV-XX-description` | Feature branches per Jira ticket |
+| `fix/FCINV-XX-description` | Bug fix branches |
+| `hotfix/FCINV-XX-description` | Production hotfixes |
 
 ## Team
 
 | Agent | Role | Jira Epic |
 |---|---|---|
 | Maverick | Tech Lead | — |
-| ALPHA | DevOps Architect | SCRUM-32 |
-| OMEGA | Lead Coder | SCRUM-53 |
-| SHADOW | Security Architect | SCRUM-52 |
-| DELTA | QA Lead | SCRUM-51 |
+| ALPHA | DevOps Architect | FCINV-32 |
+| OMEGA | Lead Coder | FCINV-53 |
+| SHADOW | Security Architect | FCINV-52 |
+| DELTA | QA Lead | FCINV-51 |
 
 ---
 *Maintained by Team Maverick — coordinated by Hermes AI*
