@@ -28,7 +28,7 @@ jobs:
   # ──────────────────────────────────────────────
   build-backend:
     name: "🐳 Build Backend → Harbor"
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, harbor, azure-vm]   # ← Azure VM runner — has direct Harbor access
     outputs:
       image_tag:    ${{ steps.meta.outputs.version }}
       image_digest: ${{ steps.push.outputs.digest }}
@@ -55,23 +55,15 @@ jobs:
           registry: ${{ secrets.HARBOR_URL }}
           username: ${{ secrets.HARBOR_USERNAME }}
           password: ${{ secrets.HARBOR_PASSWORD }}
-        # Harbor runs on minikube (private NodePort) — not reachable from GitHub hosted runners.
-        # Login is expected to fail on public runners; self-hosted runner on Azure VM will succeed.
-        continue-on-error: true
-        id: harbor-login
 
       - name: Build & push backend
         id: push
         uses: docker/build-push-action@v5
         with:
           context: ./backend
-          # Push only if Harbor login succeeded (self-hosted runner) — otherwise just build/validate
-          push: ${{ steps.harbor-login.outcome == 'success' }}
-          load: ${{ steps.harbor-login.outcome != 'success' }}
+          push: true
           tags:   ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to:   type=gha,mode=max
 
       - name: Image summary
         run: |
@@ -86,6 +78,11 @@ jobs:
   build-frontend:
     name: "🐳 Build Frontend → Harbor"
     runs-on: ubuntu-latest
+    outputs:
+      image_tag:    ${{ steps.meta.outputs.version }}
+  build-frontend:
+    name: "🐳 Build Frontend → Harbor"
+    runs-on: [self-hosted, harbor, azure-vm]   # ← Azure VM runner — has direct Harbor access
     outputs:
       image_tag:    ${{ steps.meta.outputs.version }}
       image_digest: ${{ steps.push.outputs.digest }}
@@ -112,23 +109,15 @@ jobs:
           registry: ${{ secrets.HARBOR_URL }}
           username: ${{ secrets.HARBOR_USERNAME }}
           password: ${{ secrets.HARBOR_PASSWORD }}
-        # Harbor runs on minikube (private NodePort) — not reachable from GitHub hosted runners.
-        # Login is expected to fail on public runners; self-hosted runner on Azure VM will succeed.
-        continue-on-error: true
-        id: harbor-login-frontend
 
       - name: Build & push frontend
         id: push
         uses: docker/build-push-action@v5
         with:
           context: ./frontend
-          # Push only if Harbor login succeeded (self-hosted runner) — otherwise just build/validate
-          push: ${{ steps.harbor-login-frontend.outcome == 'success' }}
-          load: ${{ steps.harbor-login-frontend.outcome != 'success' }}
+          push: true
           tags:   ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to:   type=gha,mode=max
 
       - name: Image summary
         run: |
@@ -144,7 +133,7 @@ jobs:
   # ──────────────────────────────────────────────
   trivy-scan-gate:
     name: "🔒 Trivy Scan Gate"
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, harbor, azure-vm]   # ← needs Harbor API access
     needs: [build-backend, build-frontend]
     steps:
       - name: Check Harbor reachability
