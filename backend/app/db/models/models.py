@@ -68,6 +68,7 @@ class User(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
     email = Column(String(255), nullable=False)       # pgcrypto encrypted in prod
+    hashed_password = Column(String(255), nullable=True)   # nullable for SSO-only users
     role = Column(SAEnum(UserRole), nullable=False, default=UserRole.read_only)
     sso_provider = Column(String(50), nullable=True)
     mfa_enabled = Column(Boolean, default=False)
