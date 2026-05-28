@@ -42,7 +42,9 @@ def send_email_notification(self, to_emails: list, subject: str, body: str):
 @celery_app.task(bind=True, max_retries=3)
 def dispatch_webhook(self, webhook_url: str, payload: dict, hmac_secret: str):
     """Push event to tenant webhook URL with HMAC-SHA256 signature."""
-    import hmac, hashlib, json
+    import hmac
+    import hashlib
+    import json
     import httpx
     try:
         body = json.dumps(payload)

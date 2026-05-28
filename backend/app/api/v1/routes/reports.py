@@ -1,9 +1,8 @@
 """Reports routes — sync + async generation."""
 import uuid
 from typing import Annotated, Optional
-from fastapi import APIRouter, Depends, Query, BackgroundTasks
+from fastapi import APIRouter, Depends, Query
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime
 from app.db.session import get_db

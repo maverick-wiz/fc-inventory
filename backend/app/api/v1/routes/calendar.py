@@ -1,5 +1,5 @@
 """Calendar routes — events CRUD with RFC 5545 recurrence."""
-from typing import Annotated, Optional, List
+from typing import Annotated, Optional
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession

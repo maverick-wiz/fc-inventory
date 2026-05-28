@@ -2,8 +2,7 @@
 Auth routes — JWT issuance, refresh rotation, SSO redirect.
 """
 from typing import Annotated
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status, Cookie
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, Depends, HTTPException, Response, status, Cookie
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_db

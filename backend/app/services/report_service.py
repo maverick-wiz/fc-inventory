@@ -3,8 +3,8 @@ import uuid
 from datetime import datetime
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_
-from app.db.models.models import StockTransaction, Product, ReportSnapshot, StockTransactionType
+from sqlalchemy import select, func
+from app.db.models.models import StockTransaction, Product, StockTransactionType
 
 
 REPORT_TYPES = ["turnover", "shrinkage", "fill_rate", "days_on_hand", "reorder_frequency", "supplier_lead_time"]
