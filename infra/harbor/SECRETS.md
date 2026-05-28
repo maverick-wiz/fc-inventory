@@ -27,3 +27,4 @@ In production (AWS/GCP), replace Harbor secrets with:
 Harbor automatically scans every pushed image with Trivy.
 - Images with CRITICAL vulnerabilities will be blocked from pull.
 - View scan results: http://harbor.local:30080 → Projects → fc-inventory-backend → Repositories
+# Harbor: admin credentials used for CI push (all-project access)
