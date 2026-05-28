@@ -20,7 +20,8 @@ interface DataTableProps<T> {
   onRowSelect?: (rows: T[]) => void;
 }
 
-export function DataTable<T extends { id?: string }>({
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function DataTable<T extends Record<string, any>>({
   data, columns, total = 0, page = 1, pageSize = 20,
   onPageChange, loading, emptyMessage = "No data found",
 }: DataTableProps<T>) {
