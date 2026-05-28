@@ -3,7 +3,7 @@
  * FCINV-86: F2 — Inventory Dashboard UI
  */
 import { useState } from "react";
-import { Package, AlertTriangle, ShoppingCart, TrendingUp } from "lucide-react";
+import { Package, AlertTriangle, TrendingUp } from "lucide-react";
 import { KPICard } from "@/components/inventory/KPICard";
 import { StatusBadge } from "@/components/inventory/StatusBadge";
 import { DataTable } from "@/components/ui/DataTable";
