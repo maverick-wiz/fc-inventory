@@ -33,7 +33,7 @@ jobs:
         run: ruff check app/ --output-format=github
 
       - name: Mypy type check
-        run: mypy app/ --ignore-missing-imports
+        run: mypy app/ --ignore-missing-imports --config-file mypy.ini
 
   backend-tests:
     name: Backend — Unit & Integration Tests
