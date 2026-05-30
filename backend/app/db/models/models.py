@@ -68,6 +68,7 @@ class User(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
     email = Column(String(255), nullable=False)       # pgcrypto encrypted in prod
+    hashed_password = Column(String(255), nullable=True)   # nullable for SSO-only users
     role = Column(SAEnum(UserRole), nullable=False, default=UserRole.read_only)
     sso_provider = Column(String(50), nullable=True)
     mfa_enabled = Column(Boolean, default=False)
@@ -108,6 +109,7 @@ class Product(Base):
     sku = Column(String(100), nullable=False)
     name = Column(String(255), nullable=False)
     category_id = Column(UUID(as_uuid=True), ForeignKey("categories.id"), nullable=True)
+    supplier_id = Column(UUID(as_uuid=True), ForeignKey("suppliers.id"), nullable=True)
     upc = Column(String(50), nullable=True)
     unit_cost = Column(Numeric(10, 2), nullable=False)
     is_deleted = Column(Boolean, default=False)
